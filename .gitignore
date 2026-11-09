@@ -1,0 +1,17 @@
+# Build output (cmake build dirs, the plugin template's per-preset dirs,
+# Rust's target/ via core/.gitignore, the plugin's downloaded .deps via
+# plugin/.gitignore)
+build/
+build-*/
+build_*/
+# Test helpers
+venv/
+__pycache__/
+*.pyc
+# Secrets never go here (signing material lives in GitHub secrets and the
+# maintainer's ~/.config/obs-blade)
+*.p12
+*.p8
+*.key
+.env*
+.DS_Store
