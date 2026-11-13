@@ -43,7 +43,12 @@ Remote ..."). From now on: `docs/changelog.md` here.
   `Run` value "OBS Blade Remote" and `HKCU\Software\Kounex\OBS Blade Remote`.
 - **Steam Machine** (`ssh steammachine`, SteamOS, user `deck`): the Linux
   target (AppImage, Flatpak OBS). Often asleep - ask the user to wake it
-  and switch to Desktop Mode (the tray needs a desktop session).
+  and switch to Desktop Mode (the tray needs a desktop session). SteamOS
+  kills an SSH session's processes on logout (`KillUserProcesses`): start
+  GUI programs with `systemd-run --user --unit=.. --collect <cmd>`
+  (screenshots: `systemd-run --user --wait spectacle -b -n -f -o ..`).
+  Test folder `~/obb-test` (AppImage, venv, `obs-pw`); Flatpak OBS
+  `com.obsproject.Studio` is installed for the user.
 - **Live relay tests** (`failover.py`, `portable_start.py`,
   `load_probe.py`) need a test id in `RELAY_PRO_ALLOW` in
   `/etc/remote-relay.env` on `hetzner-vps` (restart `remote-relay`) - add

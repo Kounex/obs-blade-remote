@@ -128,6 +128,13 @@ QString statusText(const QJsonObject &state)
 
 int main(int argc, char **argv)
 {
+#if defined(Q_OS_LINUX)
+	// The AppImage bundles only Qt's xcb platform plugin (X11, XWayland
+	// on Wayland desktops). A QT_QPA_PLATFORM=wayland set for the whole
+	// desktop would otherwise stop it from starting at all.
+	if (qEnvironmentVariableIsSet("APPIMAGE") && qgetenv("QT_QPA_PLATFORM") != "offscreen")
+		qputenv("QT_QPA_PLATFORM", "xcb");
+#endif
 	QApplication app(argc, argv);
 	QApplication::setApplicationName(QStringLiteral("OBS Blade Remote"));
 	QApplication::setOrganizationName(QStringLiteral("Kounex"));

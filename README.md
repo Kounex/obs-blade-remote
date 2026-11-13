@@ -130,6 +130,21 @@ portable, Windows 11, 2026-11-09. GUI programs started over SSH land in
 a session without a desktop: start the standalone and OBS through a
 temporary scheduled task (`LogonType Interactive`).
 
+Flatpak OBS on Linux with the AppImage (both running in the desktop
+session, OBS's WebSocket server on, a test id in `RELAY_PRO_ALLOW`):
+
+```bash
+venv/bin/python3 core/tests/flatpak_start.py --relay-url https://relay.obs-blade.com --user <id> \
+  --obs-password <pw>
+```
+
+The same steps with the Flatpak: pairs, kills OBS, starts it through the
+relay (`flatpak run`), checks the crash marks in `~/.var/app/...` are
+cleared and a phone reaches OBS. Last green run: OBS 33.0.1 Flatpak,
+SteamOS 3.9 (KDE Plasma, Wayland), 2026-11-13. Over SSH, start programs
+with `systemd-run --user` - SteamOS kills an SSH session's processes when
+it ends.
+
 The core reads obs-websocket's password from
 `<OBS config>/plugin_config/obs-websocket/config.json` - for the
 standalone also a portable install's `config/obs-studio` next to the OBS
