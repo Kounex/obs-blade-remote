@@ -3,6 +3,13 @@
 Running log of the work, newest first. Before 2026-11-09 this code lived
 in `Kounex/obs_blade` (`desktop/`): see its `docs/changelog-agent.md`.
 
+## 2026-11-13 - 0.4.0 released
+
+- Tag `v0.4.0`: CI run 43427820392 published the five downloads +
+  `SHA256SUMS.txt`; obs-blade.kounex.com/remote links them
+  (`releases/latest/download/<file>`, all five checked). Out before the
+  app's 4.3 so dogfooding and App Review can use it (user, 2026-11-13).
+
 ## 2026-11-13 - AppImage on SteamOS
 
 - Tested the CI AppImage on the Steam Machine (SteamOS 3.9, Plasma
