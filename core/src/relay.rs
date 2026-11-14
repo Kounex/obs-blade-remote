@@ -26,6 +26,13 @@ const SILENCE_LIMIT: Duration = Duration::from_secs(75);
 /// "went silent" after 75 s (2026-11-08).
 const KEEPALIVE: Duration = Duration::from_secs(25);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
+/// A link that held at least this long and then dropped (a relay restart,
+/// a short drop on this PC's line) is retried about every second for
+/// [FAST_WINDOW] before the backoff starts. A relay restart takes ~1.5 s;
+/// with the plain backoff, one attempt that landed before the relay was up
+/// meant 4 s more, then 8 s.
+const STABLE_LINK: Duration = Duration::from_secs(60);
+const FAST_WINDOW: Duration = Duration::from_secs(15);
 /// Standalone start: the longest the link waits for the plugin check (the
 /// monitor answers in well under a second when OBS runs or is closed).
 const PLUGIN_CHECK_WAIT: Duration = Duration::from_secs(8);
@@ -47,7 +54,7 @@ enum Ended {
 pub async fn run(shared: Arc<Shared>) {
     let mut control_rx = shared.control_rx.lock().unwrap().take().expect("relay::run once");
     let mut stop = shared.stop.subscribe();
-    let mut failures: u32 = 0;
+    let mut retry = Retry::default();
     let mut check_wait = PLUGIN_CHECK_WAIT;
     loop {
         if shared.stopping() {
@@ -113,9 +120,8 @@ pub async fn run(shared: Arc<Shared>) {
             }
             Ended::Lost(reason) => {
                 shared.log("info", format!("relay link lost: {reason}"));
-                failures = if started.elapsed() > Duration::from_secs(60) { 1 } else { failures + 1 };
                 shared.set_relay_state(RelayState::Offline(reason));
-                backoff(failures)
+                retry.after_loss(started.elapsed(), Instant::now())
             }
         };
         if !wait.is_zero() {
@@ -128,11 +134,42 @@ pub async fn run(shared: Arc<Shared>) {
     }
 }
 
+/// When to try the relay again after a lost link.
+#[derive(Default)]
+struct Retry {
+    failures: u32,
+    fast_until: Option<Instant>,
+}
+
+impl Retry {
+    /// The link ended after `held` (connected or not) at `now`.
+    fn after_loss(&mut self, held: Duration, now: Instant) -> Duration {
+        if held > STABLE_LINK {
+            self.failures = 0;
+            self.fast_until = Some(now + FAST_WINDOW);
+        }
+        if self.fast_until.is_some_and(|until| now < until) {
+            return fast_retry();
+        }
+        self.fast_until = None;
+        self.failures += 1;
+        backoff(self.failures)
+    }
+}
+
+/// 0.5-1.5 s: spread so bridges don't all hit a restarted relay at once.
+fn fast_retry() -> Duration {
+    Duration::from_millis(500 + u64::from(jitter_nanos() % 1000))
+}
+
+fn jitter_nanos() -> u32 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0)
+}
+
 fn backoff(failures: u32) -> Duration {
     let base = Duration::from_secs(1u64 << failures.min(6)).min(MAX_BACKOFF);
     // ±20 % jitter so bridges don't reconnect in lockstep after a relay restart.
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
-    let factor = 0.8 + f64::from(nanos % 1000) / 2500.0;
+    let factor = 0.8 + f64::from(jitter_nanos() % 1000) / 2500.0;
     base.mul_f64(factor)
 }
 
@@ -375,11 +412,56 @@ const KEY_GRACE: Duration = Duration::from_secs(15 * 60);
 
 #[cfg(test)]
 mod tests {
+    use std::time::{Duration, Instant};
+
     #[test]
     fn backoff_grows_and_caps() {
         let first = super::backoff(1).as_secs_f64();
         assert!((1.6..=2.4).contains(&first), "{first}");
         let late = super::backoff(20).as_secs_f64();
         assert!((48.0..=72.0).contains(&late), "{late}");
+    }
+
+    fn fast(wait: Duration) -> bool {
+        (Duration::from_millis(500)..=Duration::from_millis(1500)).contains(&wait)
+    }
+
+    #[test]
+    fn a_held_link_is_retried_fast_then_backs_off() {
+        let mut retry = super::Retry::default();
+        let t0 = Instant::now();
+        // Relay restart: a link up for hours drops; the relay is still down
+        // for the next attempts
+        assert!(fast(retry.after_loss(Duration::from_secs(3 * 3600), t0)));
+        for s in [1, 2, 5, 14] {
+            assert!(fast(retry.after_loss(Duration::ZERO, t0 + Duration::from_secs(s))), "{s}");
+        }
+        // Still down after the window: the usual backoff, from the start
+        let wait = retry.after_loss(Duration::ZERO, t0 + Duration::from_secs(16));
+        assert!((1.6..=2.4).contains(&wait.as_secs_f64()), "{wait:?}");
+        let wait = retry.after_loss(Duration::ZERO, t0 + Duration::from_secs(19));
+        assert!((3.2..=4.8).contains(&wait.as_secs_f64()), "{wait:?}");
+    }
+
+    #[test]
+    fn a_link_that_never_held_backs_off_as_before() {
+        let mut retry = super::Retry::default();
+        let t0 = Instant::now();
+        let first = retry.after_loss(Duration::from_secs(5), t0);
+        assert!((1.6..=2.4).contains(&first.as_secs_f64()), "{first:?}");
+        let second = retry.after_loss(Duration::from_secs(5), t0 + Duration::from_secs(3));
+        assert!((3.2..=4.8).contains(&second.as_secs_f64()), "{second:?}");
+    }
+
+    #[test]
+    fn a_later_held_link_starts_a_new_fast_window() {
+        let mut retry = super::Retry::default();
+        let t0 = Instant::now();
+        retry.after_loss(Duration::from_secs(600), t0);
+        let backoff = retry.after_loss(Duration::ZERO, t0 + Duration::from_secs(20));
+        assert!(!fast(backoff));
+        // Reconnected, held an hour, dropped again
+        let t1 = t0 + Duration::from_secs(3700);
+        assert!(fast(retry.after_loss(Duration::from_secs(3600), t1)));
     }
 }
