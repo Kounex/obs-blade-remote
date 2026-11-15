@@ -13,6 +13,8 @@ in `Kounex/obs_blade` (`desktop/`): see its `docs/changelog-agent.md`.
   app (after 4.3.0) retries 1 s apart after such a drop. PR 1, CI green
   on all three platforms. No protocol change: works with every relay and
   app version.
+- Released: tag `v0.4.1`, CI run 43656924115 published the five downloads
+  + `SHA256SUMS.txt`; all six answer at `releases/latest/download/<file>`.
 
 ## 2026-11-13 - 0.4.0 released
 
