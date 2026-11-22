@@ -3,7 +3,7 @@
 #   core/build-lib.sh   (Windows: cargo build --release in core)
 #   cmake -B build -DCMAKE_PREFIX_PATH=<Qt6> && cmake --build build --config Release
 cmake_minimum_required(VERSION 3.28)
-project(obs-blade-remote-standalone VERSION 0.4.1 LANGUAGES CXX)
+project(obs-blade-remote-standalone VERSION 0.4.2 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)

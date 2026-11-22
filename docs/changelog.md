@@ -3,6 +3,29 @@
 Running log of the work, newest first. Before 2026-11-09 this code lived
 in `Kounex/obs_blade` (`desktop/`): see its `docs/changelog-agent.md`.
 
+## 2026-11-22 - 0.4.2: a live OBS connection beats the process check
+
+- Relay logs 2026-11-20..22 (obs_blade `docs/changelog-agent.md`
+  2026-11-22): a standalone bridge (0.4.1) closed every phone session with
+  4901 "obs not running" within 0 s. `session.rs` sent that from the
+  shell's process check alone (`obs_process.cpp`: `obs64.exe` / `pgrep -ix
+  obs`) without trying OBS, while the monitor's own OBS connection can be
+  identified ("running" at the relay). A missed exe name locks phones out.
+  One of two candidates - the other is the app's Start OBS wait pausing in
+  the background (fixed in the app); relay 0.0.14 counts 4901 sent while
+  the bridge reports running, which tells them apart for bridges <= 0.4.1.
+- `session.rs` `refuse_without_trying()`: no early 4901 while the
+  monitor is identified (`Params.obs_answering`); close codes after a
+  failed connect unchanged (a closed OBS still gets 4901, so the app still
+  offers Start OBS). `monitor.rs` logs a warning when OBS answers but its
+  process wasn't found. Standalone: a phone's Start OBS (and the tray
+  item) doesn't start OBS / clear crash marks while OBS answers.
+- PR 2, CI green on all three platforms (unit tests for the predicate).
+  Not tested on a device: MacBook, Windows PC and Steam Machine were all
+  unreachable on 2026-11-22. Check on the next device session: `obb
+  --obs-running false` with OBS up -> the warning, and a phone session
+  opens.
+
 ## 2026-11-15 - 0.4.1: quick reconnect after a relay restart
 
 - `core/src/relay.rs` `Retry`: a relay link that held over 60 s and
