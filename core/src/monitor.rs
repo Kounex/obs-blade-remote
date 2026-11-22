@@ -167,7 +167,17 @@ fn requests() -> Vec<String> {
 fn handle(shared: &Arc<Shared>, message: &Value, previous_bytes: &mut Option<(u64, Instant)>) {
     let d = &message["d"];
     match message["op"].as_u64() {
-        Some(2) => shared.set_obs_state("running"),
+        Some(2) => {
+            shared.set_obs_state("running");
+            if *shared.obs_running.borrow() == Some(false) {
+                // Phones are let in on this connection (session.rs); the
+                // log tells why the panel's OBS check disagrees
+                shared.log(
+                    "warn",
+                    "OBS answers on its WebSocket, but its process wasn't found - trusting the WebSocket",
+                );
+            }
+        }
         Some(5) => match d["eventType"].as_str() {
             Some("CustomEvent") => {
                 let pair = &d["eventData"][PAIR_EVENT_KEY];

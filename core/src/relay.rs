@@ -247,6 +247,7 @@ async fn connect(
                                     } else {
                                         *shared.obs_running.borrow()
                                     },
+                                    obs_answering: *shared.obs_state.borrow() == "running",
                                     bridge_private: shared.e2e_keypair().0,
                                     app_keys: shared.app_keys(),
                                 };

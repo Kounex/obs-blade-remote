@@ -22,6 +22,9 @@ pub struct Params {
     pub cap: PreviewCap,
     /// What the shell knows about the OBS process (plugin: always true).
     pub obs_running: Option<bool>,
+    /// The bridge's own OBS connection is identified right now: OBS
+    /// answers, whatever the shell's process check says.
+    pub obs_answering: bool,
     /// This bridge's end-to-end private key.
     pub bridge_private: Vec<u8>,
     /// The paired phones' static keys: only they open a session.
@@ -49,12 +52,19 @@ pub fn unreachable_code(ws: &WsConfig, refused: bool, obs_running: Option<bool>)
     (OBS_UNREACHABLE, "obs unreachable")
 }
 
+/// Answer "not running" / "unreachable" without trying OBS. A process
+/// check that misses a running OBS (an exe name it doesn't know) must not
+/// lock phones out while the bridge itself talks to OBS.
+pub fn refuse_without_trying(ws: &WsConfig, obs_running: Option<bool>, obs_answering: bool) -> bool {
+    !ws.enabled || (obs_running == Some(false) && !obs_answering)
+}
+
 pub async fn run(p: Params, mut from_phone: mpsc::Receiver<Vec<u8>>, out: mpsc::Sender<Out>) {
     let sid = p.sid;
     let close = |code: u16, reason: &str| Out::Close(sid, code, reason.to_owned());
 
     // OBS first: "not running" / "unreachable" answer before any handshake.
-    if !p.ws.enabled || p.obs_running == Some(false) {
+    if refuse_without_trying(&p.ws, p.obs_running, p.obs_answering) {
         let (code, reason) = unreachable_code(&p.ws, false, p.obs_running);
         let _ = out.send(close(code, reason)).await;
         return;
@@ -168,4 +178,34 @@ async fn send_sealed(transport: &mut Transport, sid: u32, text: &str, out: &mpsc
         }
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ws(enabled: bool) -> WsConfig {
+        WsConfig { enabled, ..WsConfig::default() }
+    }
+
+    #[test]
+    fn a_closed_obs_is_refused_without_trying() {
+        assert!(refuse_without_trying(&ws(true), Some(false), false));
+    }
+
+    #[test]
+    fn obs_answering_the_bridge_is_tried_even_when_the_process_check_misses_it() {
+        assert!(!refuse_without_trying(&ws(true), Some(false), true));
+    }
+
+    #[test]
+    fn running_or_unknown_obs_is_tried() {
+        assert!(!refuse_without_trying(&ws(true), Some(true), false));
+        assert!(!refuse_without_trying(&ws(true), None, false));
+    }
+
+    #[test]
+    fn a_server_that_is_off_is_refused_even_while_obs_answers() {
+        assert!(refuse_without_trying(&ws(false), Some(true), true));
+    }
 }

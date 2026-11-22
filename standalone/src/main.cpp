@@ -37,6 +37,9 @@ namespace {
 ObbBridge *g_bridge = nullptr;
 /// The OBS executable last seen running (the core stores it: state.obs_exe)
 QString g_obsExe;
+/// The core's own connection to OBS is identified (state.obs "running"):
+/// OBS runs even if obs_process doesn't see it (an exe name it doesn't know)
+bool g_obsAnswering = false;
 
 void send(const QJsonObject &command)
 {
@@ -215,12 +218,15 @@ int main(int argc, char **argv)
 					const QString type = event["type"].toString();
 					if (type == "state") {
 						g_obsExe = event["obs_exe"].toString();
+						g_obsAnswering = event["obs"].toString() == QLatin1String("running");
 						ctx->window->panel->applyState(event);
 						ctx->status->setText(statusText(event));
 						ctx->tray->setToolTip(QStringLiteral("OBS Blade Remote - %1").arg(statusText(event)));
 					} else if (type == "start_obs") {
 						logLine(QStringLiteral("a phone asked to start OBS"));
-						if (!obs_process::running()) {
+						if (g_obsAnswering) {
+							logLine(QStringLiteral("OBS already answers - not starting it again"));
+						} else if (!obs_process::running()) {
 							if (const int marks = obs_process::clearCrashMarks(g_obsExe))
 								logLine(QStringLiteral("OBS didn't shut down cleanly last time - "
 										       "starting it without the Safe Mode question (%1)")
@@ -250,7 +256,7 @@ int main(int argc, char **argv)
 	int lastRunning = -1;
 	auto checkObs = [&lastRunning, startObs] {
 		const bool running = obs_process::running();
-		startObs->setEnabled(!running);
+		startObs->setEnabled(!running && !g_obsAnswering);
 		if (int(running) != lastRunning) {
 			lastRunning = int(running);
 			QJsonObject command{{"cmd", "obs_running"}, {"value", running}};
