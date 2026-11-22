@@ -25,6 +25,8 @@ in `Kounex/obs_blade` (`desktop/`): see its `docs/changelog-agent.md`.
   unreachable on 2026-11-22. Check on the next device session: `obb
   --obs-running false` with OBS up -> the warning, and a phone session
   opens.
+- Released: tag `v0.4.2`, CI run 45056477969 published the five downloads
+  + `SHA256SUMS.txt`; `releases/latest/download/<file>` serves 0.4.2.
 
 ## 2026-11-15 - 0.4.1: quick reconnect after a relay restart
 
