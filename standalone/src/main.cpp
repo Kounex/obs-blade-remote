@@ -18,6 +18,7 @@ Copyright (C) 2026 Kounex - GPL-3.0-or-later
 #include <QApplication>
 #include <QCloseEvent>
 #include <QDateTime>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFile>
 #include <QIcon>
@@ -30,6 +31,7 @@ Copyright (C) 2026 Kounex - GPL-3.0-or-later
 #include <QStandardPaths>
 #include <QSystemTrayIcon>
 #include <QTimer>
+#include <QUrl>
 #include <QVBoxLayout>
 
 namespace {
@@ -163,6 +165,9 @@ int main(int argc, char **argv)
 	menu.addSeparator();
 	QAction *open = menu.addAction(QStringLiteral("Open OBS Blade Remote..."));
 	QAction *startObs = menu.addAction(QStringLiteral("Start OBS"));
+	/// Shown once the relay told of a newer release (state.update_available)
+	QAction *update = menu.addAction(QString());
+	update->setVisible(false);
 	menu.addSeparator();
 	QAction *quit = menu.addAction(QStringLiteral("Quit OBS Blade Remote"));
 	QObject::connect(open, &QAction::triggered, &window, &PanelWindow::present);
@@ -171,6 +176,8 @@ int main(int argc, char **argv)
 		if (!obs_process::start(g_obsExe, &error))
 			QMessageBox::warning(nullptr, QStringLiteral("OBS Blade Remote"), error);
 	});
+	QObject::connect(update, &QAction::triggered,
+			 [] { QDesktopServices::openUrl(QUrl(QStringLiteral("https://obs-blade.kounex.com/remote"))); });
 	QObject::connect(quit, &QAction::triggered, &app, &QApplication::quit);
 
 #ifdef Q_OS_MACOS
@@ -205,8 +212,9 @@ int main(int argc, char **argv)
 	struct Context {
 		PanelWindow *window;
 		QAction *status;
+		QAction *update;
 		QSystemTrayIcon *tray;
-	} context{&window, status, &tray};
+	} context{&window, status, update, &tray};
 	g_bridge = obb_start(
 		R"({"kind": "standalone"})",
 		[](const char *json, void *user) {
@@ -222,6 +230,9 @@ int main(int argc, char **argv)
 						ctx->window->panel->applyState(event);
 						ctx->status->setText(statusText(event));
 						ctx->tray->setToolTip(QStringLiteral("OBS Blade Remote - %1").arg(statusText(event)));
+						const QString newer = event["update_available"].toString();
+						ctx->update->setText(QStringLiteral("Download OBS Blade Remote %1...").arg(newer));
+						ctx->update->setVisible(!newer.isEmpty());
 					} else if (type == "start_obs") {
 						logLine(QStringLiteral("a phone asked to start OBS"));
 						if (g_obsAnswering) {

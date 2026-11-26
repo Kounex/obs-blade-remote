@@ -3,6 +3,28 @@
 Running log of the work, newest first. Before 2026-11-09 this code lived
 in `Kounex/obs_blade` (`desktop/`): see its `docs/changelog-agent.md`.
 
+## 2026-11-26 - Update hint: the relay tells of a newer release
+
+- The relay (obs_blade `tool/remote_relay`, commit af8fa5af) reads this
+  repo's latest GitHub release every 6 h and sends `update_available
+  {version}` to a bridge behind it (after the welcome, or when a release
+  comes out while it's connected). `relay.rs` hands it to
+  `Shared::offer_update`: kept only if it's a plain release newer than
+  this build, logged once, `state.update_available`. Panel: a hint with a
+  download link (also while deferred to the plugin - an old standalone
+  needs it too); standalone tray: "Download OBS Blade Remote X..." item.
+  Bridges before this release ignore the message: they only hear of
+  updates through the app (bridge info `update_available`).
+- Checked on the MacBook (OBS 32.2.2, plugin moved out for the run):
+  `e2e_relay.py` plain, and with `--obs-running-false --latest-bridge
+  9.9.9 --stop-obs-cmd` (new flags) - all green: 0.4.2's fix on a device
+  for the first time (session opens, warning logged, 4901 after OBS
+  quit) and the offer in the bridge info and the bridge's state. Panel
+  rendered (Fusion dark + native macOS, `ui/preview` states
+  `update_available`, `deferred_update_available`). The tray item is
+  only compile-checked: the standalone has no relay URL override.
+- The local relay picked 0.4.2 up from GitHub by itself during the run.
+
 ## 2026-11-22 - 0.4.2: a live OBS connection beats the process check
 
 - Relay logs 2026-11-20..22 (obs_blade `docs/changelog-agent.md`

@@ -114,6 +114,9 @@ pub struct Shared {
     pub obs_outbox: broadcast::Sender<String>,
     /// OBS base canvas width / height (GetVideoSettings), for the preview cap.
     pub canvas_aspect: Mutex<Option<f64>>,
+    /// A newer release the relay told about (`update_available`), for the
+    /// panel and the tray.
+    pub update_available: Mutex<Option<String>>,
 }
 
 impl Shared {
@@ -138,6 +141,7 @@ impl Shared {
             sink,
             last_emitted: Mutex::new(String::new()),
             recent_codes: Mutex::new(Vec::new()),
+            update_available: Mutex::new(None),
             obs_outbox: broadcast::Sender::new(16),
             canvas_aspect: Mutex::new(None),
         })
@@ -227,6 +231,23 @@ impl Shared {
     }
 
     /// Diagnostics for the shell's log (the plugin writes them to OBS's log).
+    /// The relay's `update_available`: kept (and logged once) only when it
+    /// really is newer than this build.
+    pub fn offer_update(&self, version: &str) {
+        if !newer_release(version, &self.cfg.version) {
+            return;
+        }
+        {
+            let mut offered = self.update_available.lock().unwrap();
+            if offered.as_deref() == Some(version) {
+                return;
+            }
+            *offered = Some(version.to_owned());
+        }
+        self.log("info", format!("OBS Blade Remote {version} is available (this is {})", self.cfg.version));
+        self.emit_state();
+    }
+
     pub fn log(&self, level: &str, message: impl Into<String>) {
         self.emit(json!({"type": "log", "level": level, "message": message.into()}));
     }
@@ -259,6 +280,7 @@ impl Shared {
             "bridge_key": stored.e2e_public,
             "name": self.cfg.name,
             "version": self.cfg.version,
+            "update_available": *self.update_available.lock().unwrap(),
         });
         let text = event.to_string();
         {
@@ -385,4 +407,59 @@ pub enum PairAttempt {
 
 fn normalize_code(code: &str) -> String {
     code.chars().filter(char::is_ascii_alphanumeric).collect::<String>().to_ascii_uppercase()
+}
+
+/// "1.2.3" as numbers; None for anything else (pre-releases included).
+fn release(version: &str) -> Option<(u32, u32, u32)> {
+    let mut parts = version.split('.').map(|p| p.parse::<u32>().ok());
+    let release = (parts.next()??, parts.next()??, parts.next()??);
+    parts.next().is_none().then_some(release)
+}
+
+/// Whether `candidate` is a release newer than `mine`.
+pub fn newer_release(candidate: &str, mine: &str) -> bool {
+    matches!((release(candidate), release(mine)), (Some(c), Some(m)) if c > m)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_newer_plain_release_counts() {
+        assert!(newer_release("0.4.3", "0.4.2"));
+        assert!(newer_release("0.10.0", "0.9.9"));
+        assert!(newer_release("1.0.0", "0.99.99"));
+        assert!(!newer_release("0.4.2", "0.4.2"));
+        assert!(!newer_release("0.4.1", "0.4.2"));
+        for odd in ["", "0.4", "0.4.3.1", "0.4.3-beta", "v0.4.3", "x.y.z"] {
+            assert!(!newer_release(odd, "0.4.2"), "{odd}");
+        }
+        assert!(!newer_release("0.4.3", "dev"));
+    }
+
+    #[test]
+    fn an_offered_update_reaches_the_state_once() {
+        let events = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let seen = events.clone();
+        let mut cfg = Config::new(Kind::Standalone);
+        cfg.version = "0.4.2".into();
+        cfg.state_path = std::env::temp_dir().join(format!("obb-offer-{}.json", std::process::id()));
+        let shared = Shared::new(cfg, Arc::new(move |event: Value| seen.lock().unwrap().push(event)));
+        let logs = |events: &[Value]| events.iter().filter(|e| e["type"] == "log").count();
+
+        shared.offer_update("0.4.1"); // older: ignored
+        shared.offer_update("0.4.2"); // the same: ignored
+        assert_eq!(*shared.update_available.lock().unwrap(), None);
+        assert_eq!(logs(&events.lock().unwrap()), 0);
+
+        shared.offer_update("0.4.3");
+        shared.offer_update("0.4.3"); // again (a reconnect): nothing new
+        assert_eq!(shared.update_available.lock().unwrap().as_deref(), Some("0.4.3"));
+        let events = events.lock().unwrap();
+        assert_eq!(logs(&events), 1);
+        let state = events.iter().rev().find(|e| e["type"] == "state").expect("a state event");
+        assert_eq!(state["update_available"], "0.4.3");
+        let _ = std::fs::remove_file(&shared.cfg.state_path);
+    }
 }

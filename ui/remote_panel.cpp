@@ -43,6 +43,8 @@ constexpr Preset kPresets[] = {
 
 /// Marks the labels RemotePanel::updateSecondaryColor dims
 constexpr const char *kSecondary = "obbSecondary";
+/// The download page (the app links the same address)
+constexpr const char *kDownloadUrl = "https://obs-blade.kounex.com/remote";
 
 QLabel *secondary(const QString &text, QWidget *parent)
 {
@@ -252,6 +254,7 @@ RemotePanel::RemotePanel(Send send, Shell shell, QWidget *parent) : QWidget(pare
 
 	hint_ = secondary(QString(), this);
 	hint_->setTextFormat(Qt::RichText);
+	hint_->setOpenExternalLinks(true);
 	root->addWidget(hint_);
 
 	/// Standalone while the plugin handles remote access: its settings and
@@ -510,6 +513,11 @@ void RemotePanel::applyState(const QJsonObject &state)
 	if (deferred)
 		hints = {QStringLiteral("Its settings and paired devices are in OBS under "
 					"<b>Tools&nbsp;&rarr;&nbsp;OBS&nbsp;Blade&nbsp;Remote</b>.")};
+	/// After the deferred list: an old standalone needs the update too
+	const QString update = state["update_available"].toString();
+	if (!update.isEmpty())
+		hints << QStringLiteral("OBS Blade Remote %1 is available \u2013 <a href=\"%2\" style=\"color: #0a84ff\">download it</a>.")
+				 .arg(update.toHtmlEscaped(), QString::fromLatin1(kDownloadUrl));
 	hint_->setText(hints.join(QStringLiteral("<br>")));
 	hint_->setVisible(!hints.isEmpty());
 

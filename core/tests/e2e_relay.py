@@ -4,6 +4,7 @@ real OBS, with this script as the phone.
 
     python3 e2e_relay.py --relay-dir <obs_blade>/tool/remote_relay --obb target/debug/obb \
         [--obs-password PW] [--stop-obs-cmd "obs_test_env.sh stop"]
+        [--obs-running-false] [--latest-bridge 9.9.9]
         [--relay-url https://relay.obs-blade.com --user <id in RELAY_PRO_ALLOW>]
 
 Needs aiohttp and noiseprotocol (an independent Noise implementation:
@@ -190,6 +191,9 @@ async def main() -> None:
     parser.add_argument("--stop-obs-cmd", help="shell command that quits OBS; then the phone must get 4901")
     parser.add_argument("--relay-url", help="use this deployed relay instead of starting one")
     parser.add_argument("--user", help="app user id the deployed relay treats as Pro (RELAY_PRO_ALLOW)")
+    parser.add_argument("--obs-running-false", action="store_true",
+                        help="the shell's process check misses OBS: sessions must still open (0.4.2)")
+    parser.add_argument("--latest-bridge", help="local relay: this is the latest bridge release (update_available)")
     args = parser.parse_args()
     global RELAY, USER
     if args.relay_url:
@@ -198,11 +202,13 @@ async def main() -> None:
 
     tmp = tempfile.mkdtemp(prefix="obb-e2e-")
     env = dict(os.environ, RELAY_PORT=str(PORT), RELAY_DB=f"{tmp}/relay.db", RC_PROJECT_ID="e2e",
-               RC_API_KEY="unused", RELAY_PRO_ALLOW=USER)
+               RC_API_KEY="unused", RELAY_PRO_ALLOW=USER, RELAY_LATEST_BRIDGE_VERSION=args.latest_bridge or "")
     relay = None if args.relay_url else subprocess.Popen(
         [sys.executable, "relay.py"], cwd=args.relay_dir, env=env,
         stdout=subprocess.DEVNULL, stderr=open(f"{tmp}/relay.log", "w"))
     obb_args = [args.obb, "--relay", RELAY, "--state", f"{tmp}/bridge.json", "--name", "E2E-PC"]
+    if args.obs_running_false:
+        obb_args += ["--obs-running", "false"]
     bridge = subprocess.Popen(obb_args, stdin=subprocess.PIPE, stdout=open(f"{tmp}/obb.log", "w"),
                               stderr=subprocess.STDOUT, text=True)
     if args.obs_password:
@@ -288,6 +294,21 @@ async def run(http: aiohttp.ClientSession, args, tmp: str) -> None:
     else:
         fail(f"bridge not online with OBS running: {info}")
     ok("bridge online, OBS running")
+    if args.obs_running_false:
+        log = open(f"{tmp}/obb.log").read()
+        if "its process wasn't found" not in log:
+            fail(f"no warning that OBS answers while its process wasn't found (see {tmp}/obb.log)")
+        ok("process check says OBS isn't running, OBS answers: warned in the bridge log")
+    if args.latest_bridge:
+        if not (info.get("update_available") and info.get("latest_version") == args.latest_bridge):
+            fail(f"bridge info doesn't offer {args.latest_bridge}: {info}")
+        for _ in range(20):
+            if f'"update_available":"{args.latest_bridge}"' in open(f"{tmp}/obb.log").read():
+                break
+            await asyncio.sleep(0.25)
+        else:
+            fail(f"the bridge's state never offered {args.latest_bridge} (see {tmp}/obb.log)")
+        ok(f"update {args.latest_bridge} offered: bridge info (app) and the bridge's state (panel, tray)")
 
     app_socket = f"{RELAY.replace('http', 'ws')}/v1/app?bridge={bridge_id}"
     async with http.ws_connect(app_socket, headers=auth, protocols=("obswebsocket.json",)) as phone_ws:
