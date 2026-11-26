@@ -24,7 +24,10 @@ in `Kounex/obs_blade` (`desktop/`): see its `docs/changelog-agent.md`.
   `update_available`, `deferred_update_available`). The tray item is
   only compile-checked: the standalone has no relay URL override.
 - The local relay picked 0.4.2 up from GitHub by itself during the run.
-- PR 3, CI green on all three platforms; released as 0.4.3 (below).
+- PR 3, CI green on all three platforms. Released: tag `v0.4.3`, CI run
+  45803491673 published the five downloads + `SHA256SUMS.txt`;
+  `releases/latest/download/<file>` serves 0.4.3. The relay part is
+  remote-relay 0.0.15 (rolls out at the fleet board's 04:00 run).
 
 ## 2026-11-22 - 0.4.2: a live OBS connection beats the process check
 
