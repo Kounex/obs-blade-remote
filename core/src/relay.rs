@@ -379,6 +379,12 @@ fn control(shared: &Arc<Shared>, text: &str) -> Option<Ended> {
             shared.emit(json!({"type": "start_obs", "device": message["device"]}));
             None
         }
+        "update_available" => {
+            if let Some(version) = message["version"].as_str() {
+                shared.offer_update(version);
+            }
+            None
+        }
         "update_required" => Some(Ended::UpdateRequired(
             message["min_version"].as_str().unwrap_or("").to_owned(),
         )),

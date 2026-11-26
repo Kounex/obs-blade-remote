@@ -91,13 +91,17 @@ venv/bin/python3 core/tests/e2e_relay.py --relay-dir ../obs-blade/tool/remote_re
   --obb core/target/debug/obb \
   [--obs-password PW]   # when OBS runs with --websocket_password PW
   [--stop-obs-cmd "../obs-blade/tool/obs_local/obs_test_env.sh stop"]
+  [--obs-running-false]  # the process check misses OBS: sessions still open
+  [--latest-bridge 9.9.9]  # the local relay offers this update
 ```
 
 It pairs through a `CustomEvent`, runs a full obs-websocket session through
 the relay (no password on the phone), checks the preview cap (size and
 aspect), `InputVolumeMeters`, the status snapshot and the 4901 close after
 OBS quits. Last green run: OBS 32.2.2 / obs-websocket 5.7.4, macOS,
-2026-11-07, with and without OBS auth.
+2026-11-26, without OBS auth (with auth: 2026-11-07). The standalone `obb`
+steps back while the OBS Blade Remote plugin answers in that OBS: move the
+plugin out of OBS's `plugins` folder for the run (and back).
 
 Failover with the plugin **and** the standalone installed (real OBS, the
 standalone running, a deployed relay with a test id in `RELAY_PRO_ALLOW`):

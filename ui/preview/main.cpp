@@ -94,6 +94,9 @@ int main(int argc, char **argv)
 		{"custom_preview", with(base(), {{"preview_max_edge", 800}, {"preview_jpeg_quality", 65}})},
 		{"advanced", base()},
 		{"deferred", with(base(), {{"relay", "deferred"}, {"kind", "standalone"}, {"devices", QJsonArray()}})},
+		{"update_available", with(base(), {{"update_available", "0.4.3"}})},
+		{"deferred_update_available",
+		 with(base(), {{"relay", "deferred"}, {"kind", "standalone"}, {"devices", QJsonArray()}, {"update_available", "0.4.3"}})},
 	};
 	for (const auto &[name, state] : states) {
 		for (const auto shell : {obb_ui::Shell::Plugin, obb_ui::Shell::Standalone}) {
