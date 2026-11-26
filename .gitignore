@@ -15,3 +15,6 @@ __pycache__/
 *.key
 .env*
 .DS_Store
+# Maintainer-only notes (machines, paths, signing material locations);
+# AGENTS.md points here. Never committed.
+docs/private/

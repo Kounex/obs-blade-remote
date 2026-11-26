@@ -3,6 +3,14 @@
 Running log of the work, newest first. Before 2026-11-09 this code lived
 in `Kounex/obs_blade` (`desktop/`): see its `docs/changelog-agent.md`.
 
+## 2026-11-26 - maintainer details out of AGENTS.md
+
+- Machine names, local paths, helper scripts, signing-material locations
+  and the App Store Connect key reference moved from `AGENTS.md` into the
+  gitignored `docs/private/maintainer-workflow.md` (maintainer clone only).
+  `AGENTS.md` keeps the generic build/test gotchas and points there. The
+  old text stays in git history (no rewrite).
+
 ## 2026-11-26 - 0.4.3: the relay tells of a newer release
 
 - The relay (obs_blade `tool/remote_relay`, commit af8fa5af) reads this

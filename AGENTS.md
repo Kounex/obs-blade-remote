@@ -20,38 +20,33 @@ Remote ..."). From now on: `docs/changelog.md` here.
   README first, then the core, then the app (`lib/utils/remote/`).
 - The **app side** (pairing UI, remote sessions, `noise_ik.dart` - the
   phone's half of `core/src/e2e.rs`).
-- The local clone is `~/agent/obs-blade`; `core/tests/e2e_relay.py` takes
-  `--relay-dir ../obs-blade/tool/remote_relay`.
+- `core/tests/e2e_relay.py` takes `--relay-dir <obs_blade clone>/tool/remote_relay`.
 
 ## Where to build and test
 
-- **Never build on the NAS** (it's prod, `/tmp` is RAM). The MacBook
-  (`ssh macbook`) is the dev machine: `rustup` shims at
-  `/opt/homebrew/opt/rustup/bin`, scratch copy `~/agent-build/desktop`
-  (rsync this repo there, excluding `target`, `.deps`, `build/`, `build_*/`,
-  `build-*/` - NOT `build*`, that eats `build-lib.sh`). Its
-  `plugin/.deps/obs-deps-qt6-*` is the Qt for the standalone and the panel
-  preview. The dev standalone's LaunchAgent points at that build folder:
-  turn "Start at login" off before deleting it.
-- **Windows PC** (`ssh windows`, PowerShell; `it-env/docs/machines/windows.md`):
-  CI installers, test folder `C:\obb-test` (portable OBS 32.2.2 with its own
-  port 4466). GUI programs must start in the desktop session: a temporary
-  scheduled task (`LogonType Interactive`) - helper
-  `C:\Users\kounex\obb-launch.ps1 -Exe .. -Dir .. [-Arguments ..]`; for
-  hidden helpers use `conhost.exe --headless powershell ...` (plain
-  powershell opens a visible terminal). Clean up after a test: the HKCU
-  `Run` value "OBS Blade Remote" and `HKCU\Software\Kounex\OBS Blade Remote`.
-- **Steam Machine** (`ssh steammachine`, SteamOS, user `deck`): the Linux
-  target (AppImage, Flatpak OBS). Often asleep - ask the user to wake it
-  and switch to Desktop Mode (the tray needs a desktop session). SteamOS
-  kills an SSH session's processes on logout (`KillUserProcesses`): start
-  GUI programs with `systemd-run --user --unit=.. --collect <cmd>`
-  (screenshots: `systemd-run --user --wait spectacle -b -n -f -o ..`).
-  Test folder `~/obb-test` (AppImage, venv, `obs-pw`); Flatpak OBS
-  `com.obsproject.Studio` is installed for the user.
+- **Maintainer checkout:** if `docs/private/` exists, read
+  [`docs/private/maintainer-workflow.md`](docs/private/maintainer-workflow.md)
+  first (gitignored, maintainer clone only): which machines build and test
+  what, their paths and helper scripts, where the signing material lives,
+  and the live relay test allowlist. Without it you're in a contributor
+  clone; `README.md` covers building and testing.
+- Copying the repo into a separate build folder: exclude `target`, `.deps`,
+  `build/`, `build_*/`, `build-*/` - NOT `build*`, that eats
+  `build-lib.sh`. `plugin/.deps/obs-deps-qt6-*` is the Qt for the
+  standalone and the panel preview. A dev standalone's LaunchAgent points
+  at its build folder: turn "Start at login" off before deleting it.
+- **Windows over SSH:** GUI programs must start in the desktop session: a
+  temporary scheduled task (`LogonType Interactive`); for hidden helpers
+  use `conhost.exe --headless powershell ...` (plain powershell opens a
+  visible terminal). Clean up after a test: the HKCU `Run` value "OBS Blade
+  Remote" and `HKCU\Software\Kounex\OBS Blade Remote`.
+- **SteamOS / Linux over SSH:** the tray needs a desktop session (Desktop
+  Mode). SteamOS kills an SSH session's processes on logout
+  (`KillUserProcesses`): start GUI programs with
+  `systemd-run --user --unit=.. --collect <cmd>` (screenshots:
+  `systemd-run --user --wait spectacle -b -n -f -o ..`).
 - **Live relay tests** (`failover.py`, `portable_start.py`,
-  `load_probe.py`) need a test id in `RELAY_PRO_ALLOW` in
-  `/etc/remote-relay.env` on `hetzner-vps` (restart `remote-relay`) - add
+  `load_probe.py`) need a test id in the relay's `RELAY_PRO_ALLOW` - add
   it for the run, **remove it right after** (count must be 0 again).
 
 ## CI, signing, releases
@@ -60,15 +55,11 @@ Remote ..."). From now on: `docs/changelog.md` here.
   warnings as errors - e.g. double->float), Linux AppImage (Ubuntu 22.04,
   xcb only, smoke test under Xvfb), macOS universal signed + notarized.
 - macOS secrets `MACOS_DEVID_*` / `MACOS_NOTARY_*` (README "CI builds and
-  macOS signing"). Source: the MacBook's `~/.config/obs-blade/` (a link
-  into `~/NASync/obs-blade`, backed up on the NAS): `developer-id/*.p12`
-  + `p12-password`, `asc-key.p8` (App Store Connect team key QJ5A6U8X72,
-  ids in `~/.localrc` `OBS_BLADE_ASC_*`). Set them by piping from the
-  MacBook into `gh secret set` - values never in chat or files here.
-  Developer ID certificates expire 2027-12-09; Xcode can't make new ones
-  (shows the role as Admin) - developer.apple.com with an openssl CSR.
-- Over ssh, codesign needs `security unlock-keychain -p "$(cat ~/.keychain)"`
-  first (else `errSecInternalComponent`).
+  macOS signing"). Where the signing material lives, how the secrets are
+  set and when the Developer ID certificates need renewing: the private
+  doc above. Secret values never go in chat or in files here.
+- Over ssh, codesign needs the login keychain unlocked first
+  (`security unlock-keychain`, else `errSecInternalComponent`).
 - Windows installers are unsigned (SmartScreen warns) - a signing option
   (Azure Trusted Signing or a certificate) is still the user's decision.
 - Release: bump the version in `core/Cargo.toml`, `plugin/buildspec.json`,
@@ -93,4 +84,4 @@ Remote ..."). From now on: `docs/changelog.md` here.
 
 Public `github.com/Kounex/obs-blade-remote`, branch `main`. Commit each
 verified unit and push. Not tracked: build dirs, `venv/`, anything
-secret (`.gitignore`).
+secret, and `docs/private/` (maintainer-only notes; `.gitignore`).
