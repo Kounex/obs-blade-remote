@@ -3,7 +3,7 @@
 Running log of the work, newest first. Before 2026-11-09 this code lived
 in `Kounex/obs_blade` (`desktop/`): see its `docs/changelog-agent.md`.
 
-## 2026-11-26 - Update hint: the relay tells of a newer release
+## 2026-11-26 - 0.4.3: the relay tells of a newer release
 
 - The relay (obs_blade `tool/remote_relay`, commit af8fa5af) reads this
   repo's latest GitHub release every 6 h and sends `update_available
@@ -24,6 +24,7 @@ in `Kounex/obs_blade` (`desktop/`): see its `docs/changelog-agent.md`.
   `update_available`, `deferred_update_available`). The tray item is
   only compile-checked: the standalone has no relay URL override.
 - The local relay picked 0.4.2 up from GitHub by itself during the run.
+- PR 3, CI green on all three platforms; released as 0.4.3 (below).
 
 ## 2026-11-22 - 0.4.2: a live OBS connection beats the process check
 
